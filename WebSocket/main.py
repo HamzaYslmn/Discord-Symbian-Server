@@ -7,6 +7,7 @@ import uvicorn
 
 NEW_LINE = '\n'
 
+# FastAPI Application
 app = FastAPI()
 
 @app.get("/")
@@ -17,6 +18,7 @@ async def read_root():
 async def get_status():
     return {"status": "Server is running"}
 
+# TCP/WebSocket Server
 async def handle_connection(reader, writer):
     addr = writer.get_extra_info('peername')
     print(f"Client connected from {addr}")
@@ -68,7 +70,7 @@ async def handle_connection(reader, writer):
     async def handle_message(message):
         print(f"Received from client {addr}: {message}")
         try:
-            
+            # Ignore HTTP requests sent to TCP server
             if message.split(' ')[0] in ["GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "PATCH"]:
                 print(f"Ignoring HTTP request: {message.splitlines()[0]}")
                 return
@@ -129,10 +131,11 @@ async def start_fastapi_server():
     await server.serve()
 
 async def main():
-    tcp_server_task = asyncio.create_task(start_tcp_server('0.0.0.0', 8081))
-    fastapi_server_task = asyncio.create_task(start_fastapi_server())
-    
-    await asyncio.gather(tcp_server_task, fastapi_server_task)
+    # Run FastAPI server and TCP server separately
+    await asyncio.gather(
+        start_fastapi_server(),
+        start_tcp_server('0.0.0.0', 8081)
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
