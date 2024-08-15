@@ -2,7 +2,8 @@ import asyncio
 import json
 import ssl
 import websockets
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Request
+from fastapi.responses import JSONResponse
 from uvicorn import Config, Server
 
 NEW_LINE = '\n'
@@ -11,10 +12,12 @@ NEW_LINE = '\n'
 app = FastAPI()
 
 @app.get("/")
+@app.head("/")
 async def read_root():
     return {"message": "Welcome to the FastAPI server running on port 8080"}
 
 @app.get("/status")
+@app.head("/status")
 async def get_status():
     return {"status": "Server is running"}
 
@@ -93,7 +96,7 @@ class TCPConnection:
             await self.close()
 
     async def handle_message(self, message):
-        print(f"Received message from TCP client {self.addr}")
+        print(f"Received message from TCP client {self.addr}: {message}")
         try:
             if message.split(' ')[0] in ["GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "PATCH"]:
                 print(f"Ignoring HTTP request on TCP server: {message.splitlines()[0]}")
@@ -130,7 +133,10 @@ class TCPConnection:
         except Exception as e:
             print(f"Error sending disconnect message to {self.addr}: {e}")
         self.writer.close()
-        await self.writer.wait_closed()
+        try:
+            await self.writer.wait_closed()
+        except Exception as e:
+            print(f"Error waiting for writer to close: {e}")
         print(f"TCP connection closed for client {self.addr}")
 
     async def run(self):
@@ -140,11 +146,13 @@ class TCPConnection:
         })
 
         try:
-            while not self.reader.at_eof():
+            while True:
                 data = await self.reader.readline()
                 if not data:
                     break
-                await self.handle_message(data.decode().strip())
+                message = data.decode().strip()
+                if message:
+                    await self.handle_message(message)
         except ConnectionResetError:
             print(f"Connection reset by {self.addr}")
         except Exception as e:
