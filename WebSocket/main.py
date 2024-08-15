@@ -53,9 +53,29 @@ async def handle_connection(reader, writer):
             print(f"WebSocket closed: {e.code} - {e.reason}")
             await handle_close()
 
+    async def handle_http_request(message):
+        response = (
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/plain\r\n"
+            "Content-Length: 7\r\n"
+            "Connection: close\r\n"
+            "\r\n"
+            "online"
+        )
+        writer.write(response.encode())
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+        print(f"HTTP request from {addr} handled and connection closed.")
+
     async def handle_message(message):
         print(f"Received from client {addr}: {message}")
         try:
+            # Check if the message is an HTTP request
+            if message.startswith("HEAD ") or message.startswith("GET "):
+                await handle_http_request(message)
+                return
+
             parsed = json.loads(message)
             if "op" in parsed and parsed["op"] == -1:
                 await handle_proxy_message(parsed)
