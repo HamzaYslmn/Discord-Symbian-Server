@@ -2,7 +2,7 @@ import asyncio
 import json
 import ssl
 import websockets
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 import uvicorn
 
 NEW_LINE = '\n'
@@ -17,6 +17,10 @@ async def read_root():
 @app.get("/status")
 async def get_status():
     return {"status": "Server is running"}
+
+@app.get("/wsinfo")
+async def get_ws_info():
+    return {"message": "WebSocket connections should be made on the appropriate protocol"}
 
 # TCP/WebSocket Server
 async def handle_connection(reader, writer):
@@ -70,6 +74,16 @@ async def handle_connection(reader, writer):
     async def handle_message(message):
         print(f"Received from client {addr}: {message}")
         try:
+            if message.split(' ')[0] in ["GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "PATCH"]:
+                print(f"Ignoring HTTP request: {message.splitlines()[0]}")
+                await send_object({
+                    'op': -1,
+                    't': 'GATEWAY_DISCONNECT',
+                    'd': {'message': 'HTTP request detected. Please use WebSockets for this connection.'}
+                })
+                await handle_close()
+                return
+            
             parsed = json.loads(message)
             if "op" in parsed and parsed["op"] == -1:
                 await handle_proxy_message(parsed)
@@ -92,32 +106,15 @@ async def handle_connection(reader, writer):
         await writer.wait_closed()
         print(f"Connection closed for client {addr}")
 
-    # Initial read to detect HTTP requests
+    await send_object({
+        'op': -1,
+        't': 'GATEWAY_HELLO'
+    })
+
+    buffer = b''
     try:
-        initial_data = await reader.read(1024)
-        initial_text = initial_data.decode()
-
-        # Check if the connection is an HTTP request
-        if initial_text.split(' ')[0] in ["GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "PATCH"]:
-            print(f"Detected HTTP request, returning response and closing connection: {initial_text.splitlines()[0]}")
-            response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n"
-            writer.write(response.encode())
-            await writer.drain()
-            writer.close()
-            await writer.wait_closed()
-            return
-
-        # If not an HTTP request, process as WebSocket
-        await send_object({
-            'op': -1,
-            't': 'GATEWAY_HELLO'
-        })
-
-        buffer = initial_data
-        while not reader.at_eof():
-            data = await reader.read(1024)
-            if not data:
-                break
+        data = await reader.read(1024)
+        if data:
             buffer += data
             while NEW_LINE.encode() in buffer:
                 message, buffer = buffer.split(NEW_LINE.encode(), 1)
