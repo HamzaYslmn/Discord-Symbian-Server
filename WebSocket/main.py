@@ -2,8 +2,21 @@ import asyncio
 import json
 import ssl
 import websockets
+from fastapi import FastAPI
+from typing import Dict
+import uvicorn
 
 NEW_LINE = '\n'
+
+app = FastAPI()
+
+@app.get("/")
+async def read_root():
+    return {"message": "Welcome to the FastAPI server running on port 8080"}
+
+@app.get("/status")
+async def get_status():
+    return {"status": "Server is running"}
 
 async def handle_connection(reader, writer):
     addr = writer.get_extra_info('peername')
@@ -53,29 +66,9 @@ async def handle_connection(reader, writer):
             print(f"WebSocket closed: {e.code} - {e.reason}")
             await handle_close()
 
-    async def handle_http_request(message):
-        response = (
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/plain\r\n"
-            "Content-Length: 7\r\n"
-            "Connection: close\r\n"
-            "\r\n"
-            "online"
-        )
-        writer.write(response.encode())
-        await writer.drain()
-        writer.close()
-        await writer.wait_closed()
-        print(f"HTTP request from {addr} handled and connection closed.")
-
     async def handle_message(message):
         print(f"Received from client {addr}: {message}")
         try:
-            # Check if the message is an HTTP request
-            if message.startswith("HEAD ") or message.startswith("GET "):
-                await handle_http_request(message)
-                return
-
             parsed = json.loads(message)
             if "op" in parsed and parsed["op"] == -1:
                 await handle_proxy_message(parsed)
@@ -118,7 +111,7 @@ async def handle_connection(reader, writer):
     finally:
         await handle_close()
 
-async def start_server(host, port):
+async def start_tcp_server(host, port):
     server = await asyncio.start_server(handle_connection, host, port)
     addr = server.sockets[0].getsockname()
     print(f'TCP server is listening on {addr}')
@@ -126,7 +119,16 @@ async def start_server(host, port):
     async with server:
         await server.serve_forever()
 
+async def start_fastapi_server():
+    config = uvicorn.Config(app, host="0.0.0.0", port=8080, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+async def main():
+    tcp_server_task = asyncio.create_task(start_tcp_server('0.0.0.0', 8081))
+    fastapi_server_task = asyncio.create_task(start_fastapi_server())
+    
+    await asyncio.gather(tcp_server_task, fastapi_server_task)
+
 if __name__ == "__main__":
-    HOST = '0.0.0.0'
-    PORT = 8081
-    asyncio.run(start_server(HOST, PORT))
+    asyncio.run(main())
