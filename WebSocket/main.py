@@ -55,9 +55,6 @@ async def handle_connection(reader, writer):
 
     async def handle_message(message):
         print(f"Received from client {addr}: {message}")
-        if message.startswith('GET') or message.startswith('POST') or message.startswith('HTTP/'):
-            print("online")
-            return  # Do not continue processing if it's an HTTP request
         try:
             parsed = json.loads(message)
             if "op" in parsed and parsed["op"] == -1:
@@ -80,19 +77,38 @@ async def handle_connection(reader, writer):
         writer.close()
         await writer.wait_closed()
         print(f"Connection closed for client {addr}")
-
+        
+    async def handle_close_http():
+        try:
+            writer.close()
+            await writer.wait_closed()
+        except Exception as e:
+            print(f"Error during close: {e}")
+        print(f"HTTP connection closed for client {addr}")
+    
     await send_object({
         'op': -1,
         't': 'GATEWAY_HELLO'
     })
 
     buffer = b''
-    try:
+    try:    
         while not reader.at_eof():
             data = await reader.read(1024)
+            
+            if "HTTP/" in data.decode():
+                print(f"Received HTTP request from {addr}")
+                response = b'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"status": "Online"}'
+                writer.write(response)
+                await writer.drain()
+                
+                await handle_close_http()
+                return
+            
             if not data:
                 break
             buffer += data
+            
             while NEW_LINE.encode() in buffer:
                 message, buffer = buffer.split(NEW_LINE.encode(), 1)
                 await handle_message(message.decode())
