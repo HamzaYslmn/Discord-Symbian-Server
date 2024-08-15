@@ -96,14 +96,15 @@ async def handle_connection(reader, writer):
         while not reader.at_eof():
             data = await reader.read(1024)
             
-            if "HTTP/" in data.decode():
-                print(f"Received HTTP request from {addr}")
-                response = b'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"status": "Online"}'
-                writer.write(response)
-                await writer.drain()
-                
-                await handle_close_http()
-                return
+            #   TODO: Handle HTTP requests
+            #if "HTTP/" in data.decode():
+            #    print(f"Received HTTP request from {addr}")
+            #    response = b'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"status": "Online"}\r\n'
+            #    writer.write(response)
+            #    await writer.drain()
+            #    
+            #    await handle_close_http()
+            #    return
             
             if not data:
                 break
