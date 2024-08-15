@@ -70,11 +70,6 @@ async def handle_connection(reader, writer):
     async def handle_message(message):
         print(f"Received from client {addr}: {message}")
         try:
-            # Ignore HTTP requests sent to TCP server
-            if message.split(' ')[0] in ["GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "PATCH"]:
-                print(f"Ignoring HTTP request: {message.splitlines()[0]}")
-                return
-            
             parsed = json.loads(message)
             if "op" in parsed and parsed["op"] == -1:
                 await handle_proxy_message(parsed)
@@ -97,13 +92,28 @@ async def handle_connection(reader, writer):
         await writer.wait_closed()
         print(f"Connection closed for client {addr}")
 
-    await send_object({
-        'op': -1,
-        't': 'GATEWAY_HELLO'
-    })
-
-    buffer = b''
+    # Initial read to detect HTTP requests
     try:
+        initial_data = await reader.read(1024)
+        initial_text = initial_data.decode()
+
+        # Check if the connection is an HTTP request
+        if initial_text.split(' ')[0] in ["GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "PATCH"]:
+            print(f"Detected HTTP request, returning response and closing connection: {initial_text.splitlines()[0]}")
+            response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n"
+            writer.write(response.encode())
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+            return
+
+        # If not an HTTP request, process as WebSocket
+        await send_object({
+            'op': -1,
+            't': 'GATEWAY_HELLO'
+        })
+
+        buffer = initial_data
         while not reader.at_eof():
             data = await reader.read(1024)
             if not data:
