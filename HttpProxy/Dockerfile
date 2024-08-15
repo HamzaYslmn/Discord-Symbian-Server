@@ -1,7 +1,7 @@
 # HttpProxy Dockerfile
 FROM node:20
 
-WORKDIR /app
+WORKDIR /usr/src/app
 
 COPY package*.json ./
 
