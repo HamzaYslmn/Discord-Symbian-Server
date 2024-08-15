@@ -3,7 +3,6 @@ import json
 import ssl
 import websockets
 from fastapi import FastAPI
-from typing import Dict
 import uvicorn
 
 NEW_LINE = '\n'
@@ -69,6 +68,11 @@ async def handle_connection(reader, writer):
     async def handle_message(message):
         print(f"Received from client {addr}: {message}")
         try:
+            
+            if message.split(' ')[0] in ["GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "PATCH"]:
+                print(f"Ignoring HTTP request: {message.splitlines()[0]}")
+                return
+            
             parsed = json.loads(message)
             if "op" in parsed and parsed["op"] == -1:
                 await handle_proxy_message(parsed)
@@ -120,7 +124,7 @@ async def start_tcp_server(host, port):
         await server.serve_forever()
 
 async def start_fastapi_server():
-    config = uvicorn.Config(app, host="0.0.0.0", port=8080, log_level="info")
+    config = uvicorn.Config(app, host="0.0.0.0", port=8080)
     server = uvicorn.Server(config)
     await server.serve()
 
