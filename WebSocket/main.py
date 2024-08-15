@@ -138,4 +138,4 @@ async def read_root():
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.create_task(main_ws())
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8082)
