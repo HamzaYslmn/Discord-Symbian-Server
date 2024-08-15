@@ -128,4 +128,5 @@ async def main():
         await server.serve_forever()
 
 if __name__ == "__main__":
+    print("Running WebSocket server on ws://" + "localhost:8081")
     asyncio.run(main())
