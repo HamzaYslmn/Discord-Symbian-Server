@@ -2,6 +2,10 @@ import asyncio
 import json
 import websockets
 import ssl
+from fastapi import FastAPI
+import uvicorn
+
+app = FastAPI()
 
 ACTIVE_CONNECTIONS = 0
 CLIENTS = {}
@@ -118,7 +122,7 @@ async def handle_client(reader, writer):
     client = Client(reader, writer)
     await client.handle_connection()
 
-async def main():
+async def main_ws():
     server = await asyncio.start_server(
         handle_client, '0.0.0.0', 8081)
 
@@ -127,6 +131,11 @@ async def main():
     async with server:
         await server.serve_forever()
 
+@app.get("/")
+async def read_root():
+    return {"status": "online"}
+
 if __name__ == "__main__":
-    print("Running WebSocket server on ws://" + "localhost:8081")
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    loop.create_task(main_ws())
+    uvicorn.run(app, host="0.0.0.0", port=8080)
