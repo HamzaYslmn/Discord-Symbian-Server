@@ -2,8 +2,8 @@ import asyncio
 import json
 import ssl
 import websockets
-from fastapi import FastAPI, HTTPException
-import uvicorn
+from fastapi import FastAPI, Request
+from uvicorn import Config, Server
 
 NEW_LINE = '\n'
 
@@ -17,10 +17,6 @@ async def read_root():
 @app.get("/status")
 async def get_status():
     return {"status": "Server is running"}
-
-@app.get("/wsinfo")
-async def get_ws_info():
-    return {"message": "WebSocket connections should be made on the appropriate protocol"}
 
 # TCP/WebSocket Server
 async def handle_connection(reader, writer):
@@ -74,14 +70,9 @@ async def handle_connection(reader, writer):
     async def handle_message(message):
         print(f"Received from client {addr}: {message}")
         try:
+            # Ignore HTTP requests sent to TCP server
             if message.split(' ')[0] in ["GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "PATCH"]:
                 print(f"Ignoring HTTP request: {message.splitlines()[0]}")
-                await send_object({
-                    'op': -1,
-                    't': 'GATEWAY_DISCONNECT',
-                    'd': {'message': 'HTTP request detected. Please use WebSockets for this connection.'}
-                })
-                await handle_close()
                 return
             
             parsed = json.loads(message)
@@ -113,8 +104,10 @@ async def handle_connection(reader, writer):
 
     buffer = b''
     try:
-        data = await reader.read(1024)
-        if data:
+        while not reader.at_eof():
+            data = await reader.read(1024)
+            if not data:
+                break
             buffer += data
             while NEW_LINE.encode() in buffer:
                 message, buffer = buffer.split(NEW_LINE.encode(), 1)
@@ -133,12 +126,11 @@ async def start_tcp_server(host, port):
         await server.serve_forever()
 
 async def start_fastapi_server():
-    config = uvicorn.Config(app, host="0.0.0.0", port=8080)
-    server = uvicorn.Server(config)
+    config = Config(app, host="0.0.0.0", port=8080)
+    server = Server(config)
     await server.serve()
 
 async def main():
-    # Run FastAPI server and TCP server separately
     await asyncio.gather(
         start_fastapi_server(),
         start_tcp_server('0.0.0.0', 8081)
