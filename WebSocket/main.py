@@ -63,6 +63,8 @@ async def handle_connection(reader, writer):
                 await websocket.send(message)
         except json.JSONDecodeError as e:
             print(f"Error parsing message: {e}")
+        except Exception as e:
+            print(f"Unexpected error: {e}")
 
     async def handle_close():
         if websocket:
