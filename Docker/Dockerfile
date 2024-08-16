@@ -2,29 +2,22 @@ FROM node:alpine
 
 WORKDIR /app
 
-# Copy only the necessary files
-COPY package*.json ./
-COPY tsconfig.json ./
-COPY .dockerignore ./
-COPY .gitignore ./
-COPY proxy/package*.json ./proxy/
-COPY src/package*.json ./src/
-
 # Install dependencies
+COPY package*.json ./
 RUN npm ci
 
-# Copy the remaining files
+# Copy the rest of the files
 COPY . .
-
-# Install PM2 globally
-RUN npm install pm2 -g
 
 # Build the project
 RUN npm run build
 
-# Expose the necessary ports
+# Install PM2 globally
+RUN npm install pm2 -g
+
+# Expose ports
 EXPOSE 8080
 EXPOSE 8081
 
-# Use PM2 to run both the proxy and gateway apps
+# Start both apps with PM2
 CMD ["pm2-runtime", "pm2.config.js"]

@@ -1,27 +1,22 @@
 module.exports = {
-    apps: [
-      {
-        name: "http-proxy",
-        script: "./proxy/index.js",
-        watch: false,
-        env: {
-          NODE_ENV: "production"
-        },
-        instances: 1,
-        exec_mode: "fork",
-        port: 8080
-      },
-      {
-        name: "websocket-gateway",
-        script: "./dist/index.js", // assuming your gateway app is built into the dist folder
-        watch: false,
-        env: {
-          NODE_ENV: "production"
-        },
-        instances: 1,
-        exec_mode: "fork",
-        port: 8081
+  apps: [
+    {
+      name: "gateway",
+      script: "./src/index.ts",  // Path to your gateway's entry file
+      watch: false,
+      env: {
+        NODE_ENV: "production",
+        PORT: 8081
       }
-    ]
-  };
-  
+    },
+    {
+      name: "http-proxy",
+      script: "./proxy/index.js",  // Correct path to your proxy's entry file
+      watch: false,
+      env: {
+        NODE_ENV: "production",
+        PORT: 8080
+      }
+    }
+  ]
+};
