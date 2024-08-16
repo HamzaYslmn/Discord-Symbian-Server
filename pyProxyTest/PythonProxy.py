@@ -14,7 +14,7 @@ async def read_root():
     </html>
     """
 
-@app.get("/json", response_class=JSONResponse)
+@app.get("/json", response_class=JSONResponse) # Not supported symbian browser
 async def get_json():
     data = {
         "message": "Hello, World!",
