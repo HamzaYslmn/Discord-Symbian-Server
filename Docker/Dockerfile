@@ -1,5 +1,8 @@
 FROM node:alpine
 
+# Install bun
+RUN curl -fsSL https://bun.sh/install | bash
+
 WORKDIR /app
 
 # Install dependencies
