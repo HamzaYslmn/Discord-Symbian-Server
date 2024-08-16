@@ -1,29 +1,30 @@
-import socket
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, JSONResponse
+import uvicorn
 
-def start_server(host='0.0.0.0', port=8080):
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((host, port))
-    server_socket.listen(1)
-    print(f"Listening on {host}:{port}...")
+app = FastAPI()
 
-    while True:
-        client_socket, client_address = server_socket.accept()
-        print(f"Connection from {client_address}")
+@app.get("/", response_class=HTMLResponse)
+async def read_root():
+    return """
+    <html>
+        <body>
+            <h1>Hello, World!</h1>
+        </body>
+    </html>
+    """
 
-        try:
-            request = client_socket.recv(1024).decode('utf-8')
-            print(f"Received request: {request}")
-
-            # Simple response
-            response = (
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Type: text/html; charset=UTF-8\r\n\r\n"
-                "<html><body><h1>Hello, World!</h1></body></html>"
-            )
-            client_socket.sendall(response.encode('utf-8'))
-
-        finally:
-            client_socket.close()
+@app.get("/json", response_class=JSONResponse)
+async def get_json():
+    data = {
+        "message": "Hello, World!",
+        "status": "success",
+        "data": {
+            "key1": "value1",
+            "key2": "value2"
+        }
+    }
+    return data
 
 if __name__ == "__main__":
-    start_server()
+    uvicorn.run(app, host="0.0.0.0", port=8080)
